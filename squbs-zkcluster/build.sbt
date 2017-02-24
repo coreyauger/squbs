@@ -2,6 +2,12 @@ import Versions._
 
 name := "squbs-zkcluster"
 
+organization := "im.conversant"
+
+publishTo := Some("NextWave Repo" at "http://maxdevmaster.cloudapp.net:4343/artifactory/nxtwv-maven/")
+
+credentials += Credentials(Path.userHome / ".ivy2" / ".credentials")
+
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-actor" % akkaV,
   "com.typesafe.akka" %% "akka-remote" % akkaV,
@@ -23,3 +29,6 @@ parallelExecution := false
 cleanFiles += baseDirectory.value / "zookeeper"
 
 updateOptions := updateOptions.value.withCachedResolution(true)
+
+
+

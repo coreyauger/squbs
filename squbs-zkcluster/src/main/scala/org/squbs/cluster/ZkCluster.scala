@@ -178,7 +178,10 @@ object ZkCluster extends ExtensionId[ZkCluster] with ExtensionIdProvider with La
     val zkNamespace = configuration.getString("zkCluster.namespace")
     val zkSegments = configuration.getInt("zkCluster.segments")
     val zkSpareLeader = configuration.getBoolean("zkCluster.spareLeader")
-    val zkAddress = external(system)
+    val nodeHostname = configuration.getString("akka.remote.netty.tcp.hostname")
+    val nodePort = configuration.getInt("akka.remote.netty.tcp.port")
+    val zkAddress = Address("akka.tcp", system.name, nodeHostname, nodePort)
+    //val zkAddress = external(system)
     logger.info("[zkcluster] connection to:{} and namespace:{} with segments:{} using address:{}",
       initConnStr, zkNamespace, zkSegments.toString, zkAddress)
     new ZkCluster(
