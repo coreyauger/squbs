@@ -1,5 +1,5 @@
 /*
- *  Copyright 2015 PayPal
+ *  Copyright 2017 PayPal
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import akka.actor.Actor._
 import akka.actor.{ActorRef, ActorContext}
 import akka.event.LoggingAdapter
 import com.typesafe.config.Config
-import org.squbs.pipeline.streaming.PipelineSetting
+import org.squbs.pipeline.PipelineSetting
 import org.squbs.util.ConfigUtil._
 
 import scala.concurrent.ExecutionContext

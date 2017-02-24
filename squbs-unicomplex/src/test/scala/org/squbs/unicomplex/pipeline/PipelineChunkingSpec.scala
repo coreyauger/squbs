@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 PayPal
+ * Copyright 2017 PayPal
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ object PipelineChunkingSpec {
        |  factory = org.squbs.unicomplex.pipeline.PostFlow
        |}
        |
-       |squbs.pipeline.streaming.defaults {
+       |squbs.pipeline.server.default {
        |  pre-flow =  preFlow
        |  post-flow = postFlow
        |}

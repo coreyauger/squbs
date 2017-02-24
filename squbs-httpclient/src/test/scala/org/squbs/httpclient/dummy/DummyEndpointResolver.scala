@@ -1,5 +1,5 @@
 /*
- *  Copyright 2015 PayPal
+ *  Copyright 2017 PayPal
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,15 +16,16 @@
 package org.squbs.httpclient.dummy
 
 import akka.actor.ActorSystem
-import org.squbs.endpoint.{Endpoint, EndpointResolver}
 import org.squbs.env.Environment
+import org.squbs.httpclient.HttpEndpoint
+import org.squbs.resolver.Resolver
 
-class DummyServiceEndpointResolver(dummyServiceEndpoint: String)
-                                  (implicit system: ActorSystem) extends EndpointResolver {
+class DummyServiceResolver(dummyServiceEndpoint: String)
+                          (implicit system: ActorSystem) extends Resolver[HttpEndpoint] {
 
-  override def resolve(svcName: String, env: Environment): Option[Endpoint] = {
+  override def resolve(svcName: String, env: Environment): Option[HttpEndpoint] = {
     if (svcName == name) {
-      Some(Endpoint(dummyServiceEndpoint))
+      Some(HttpEndpoint(dummyServiceEndpoint))
     } else {
       None
     }
@@ -33,11 +34,11 @@ class DummyServiceEndpointResolver(dummyServiceEndpoint: String)
   override def name: String = "DummyService"
 }
 
-class NotExistingEndpointResolver(implicit system: ActorSystem) extends EndpointResolver {
+class NotExistingResolver(implicit system: ActorSystem) extends Resolver[HttpEndpoint] {
 
-  override def resolve(svcName: String, env: Environment): Option[Endpoint] = {
+  override def resolve(svcName: String, env: Environment): Option[HttpEndpoint] = {
     if (svcName == name) {
-      Some(Endpoint("http://www.notexistingservice.com"))
+      Some(HttpEndpoint("http://www.notexistingservice.com"))
     } else {
       None
     }

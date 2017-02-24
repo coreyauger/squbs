@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 PayPal
+ * Copyright 2017 PayPal
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,21 +17,27 @@
 package org.squbs.httpclient
 
 import java.lang.management.ManagementFactory
+import java.util.Optional
+import java.util.concurrent.ConcurrentHashMap
 import javax.management.ObjectName
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.settings.ConnectionPoolSettings
-import akka.http.scaladsl.{ConnectionContext, HttpsConnectionContext, Http}
+import akka.http.javadsl.{model => jm}
+import akka.http.org.squbs.util.JavaConverters._
 import akka.http.scaladsl.Http.HostConnectionPool
-import akka.http.scaladsl.model.{HttpResponse, HttpRequest}
-import akka.stream.{FlowShape, Materializer}
-import akka.stream.scaladsl.{GraphDSL, Keep, Flow}
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
+import akka.http.scaladsl.settings.ConnectionPoolSettings
+import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
+import akka.http.{javadsl => jd}
+import akka.japi.Pair
+import akka.stream.scaladsl.{Flow, GraphDSL, Keep}
+import akka.stream.{FlowShape, Materializer, javadsl => js}
 import com.typesafe.config.Config
 import com.typesafe.sslconfig.akka.AkkaSSLConfig
 import com.typesafe.sslconfig.ssl.SSLConfigFactory
-import org.squbs.endpoint.EndpointResolverRegistry
-import org.squbs.env.{EnvironmentResolverRegistry, Default, Environment}
-import org.squbs.pipeline.streaming.{PipelineSetting, Context, RequestContext, PipelineExtension}
+import org.squbs.resolver.ResolverRegistry
+import org.squbs.env.{Default, Environment, EnvironmentResolverRegistry}
+import org.squbs.pipeline.{ClientPipeline, Context, PipelineExtension, PipelineSetting, RequestContext}
 
 import scala.util.{Failure, Try}
 
@@ -39,25 +45,55 @@ object ClientFlow {
 
   val AkkaHttpClientCustomContext = "akka-http-client-custom-context"
   type ClientConnectionFlow[T] = Flow[(HttpRequest, T), (Try[HttpResponse], T), HostConnectionPool]
+  private[httpclient] val defaultResolverRegistrationRecord = new ConcurrentHashMap[String, Unit]
+
+  def create[T](name: String, system: ActorSystem, mat: Materializer):
+  js.Flow[Pair[jm.HttpRequest, T], Pair[Try[jm.HttpResponse], T], jd.HostConnectionPool] =
+    toJava[T](apply[T](name)(system, mat))
+
+  def create[T](name: String,
+                connectionContext: Optional[jd.HttpsConnectionContext],
+                settings: Optional[jd.settings.ConnectionPoolSettings],
+                system: ActorSystem, mat: Materializer):
+  js.Flow[Pair[jm.HttpRequest, T],Pair[Try[jm.HttpResponse], T], jd.HostConnectionPool] = {
+    val (cCtx, sSettings) = fromJava(connectionContext, settings)
+    toJava[T](apply[T](name, cCtx, sSettings)(system, mat))
+  }
+
+  def create[T](name: String,
+                connectionContext: Optional[jd.HttpsConnectionContext],
+                settings: Optional[jd.settings.ConnectionPoolSettings],
+                env: Environment,
+                system: ActorSystem, mat: Materializer):
+  js.Flow[Pair[jm.HttpRequest, T],Pair[Try[jm.HttpResponse], T], jd.HostConnectionPool] = {
+    val (cCtx, sSettings) = fromJava(connectionContext, settings)
+    toJava[T](apply[T](name, cCtx, sSettings, env)(system, mat))
+  }
 
   def apply[T](name: String,
               connectionContext: Option[HttpsConnectionContext] = None,
               settings: Option[ConnectionPoolSettings] = None,
               env: Environment = Default)(implicit system: ActorSystem, fm: Materializer): ClientConnectionFlow[T] = {
 
+    defaultResolverRegistrationRecord.computeIfAbsent(system.name,
+      new java.util.function.Function[String, Unit] {
+        override def apply(t: String): Unit =
+          ResolverRegistry(system).register[HttpEndpoint](new DefaultHttpEndpointResolver)
+      })
+
     val environment = env match {
       case Default => EnvironmentResolverRegistry(system).resolve
       case _ => env
     }
 
-    val endpoint = EndpointResolverRegistry(system).resolve(name, environment) getOrElse {
+    val endpoint = ResolverRegistry(system).resolve[HttpEndpoint](name, environment) getOrElse {
       throw HttpClientEndpointNotExistException(name, environment)
     }
 
     val config = system.settings.config
     import org.squbs.util.ConfigUtil._
-    val clientSpecificConfig = config.getOption[Config](name).filter {
-      _.getOption[String]("type") == Some("squbs.httpclient")
+    val clientSpecificConfig = config.getOption[Config](s""""$name"""").filter {
+      _.getOption[String]("type") contains "squbs.httpclient"
     }
     val clientConfigWithDefaults = clientSpecificConfig.map(_.withFallback(config)).getOrElse(config)
     val cps = settings.getOrElse(ConnectionPoolSettings(clientConfigWithDefaults))
@@ -70,7 +106,7 @@ object ClientFlow {
         val sslConfig = AkkaSSLConfig().withSettings(SSLConfigFactory.parse(akkaOverrides withFallback defaults))
 
         val httpsConnectionContext = connectionContext orElse {
-          endpoint.sslContext map { sc => ConnectionContext.https(sc, Some(sslConfig)) }
+          endpoint.asInstanceOf[HttpEndpoint].sslContext map { sc => ConnectionContext.https(sc, Some(sslConfig)) }
         } getOrElse Http().defaultClientHttpsContext
 
         Http().cachedHostConnectionPoolHttps[RequestContext](endpoint.uri.getHost, endpoint.uri.getPort,
@@ -80,10 +116,11 @@ object ClientFlow {
       }
 
     val pipelineName = clientSpecificConfig.flatMap(_.getOption[String]("pipeline"))
-    val defaultFlowsOn = clientSpecificConfig.flatMap(_.getOption[Boolean]("defaultPipelineOn"))
+    val defaultFlowsOn = clientSpecificConfig.flatMap(_.getOption[Boolean]("defaultPipeline"))
 
     val mBeanServer = ManagementFactory.getPlatformMBeanServer
-    val beanName = new ObjectName(s"org.squbs.configuration.${system.name}:type=squbs.httpclient,name=$name")
+    val beanName = new ObjectName(
+      s"org.squbs.configuration.${system.name}:type=squbs.httpclient,name=${ObjectName.quote(name)}")
     if(!mBeanServer.isRegistered(beanName)) mBeanServer.registerMBean(HttpClientConfigMXBeanImpl(name,
                                                                                                  endpoint.uri.toString,
                                                                                                  environment.name,
@@ -98,7 +135,7 @@ object ClientFlow {
                                           clientConnectionFlow: ClientConnectionFlow[RequestContext])
                                           (implicit system: ActorSystem): ClientConnectionFlow[T] = {
 
-    PipelineExtension(system).getFlow(pipelineSetting, Context(name)) match {
+    PipelineExtension(system).getFlow(pipelineSetting, Context(name, ClientPipeline)) match {
       case Some(pipeline) =>
         val tupleToRequestContext = Flow[(HttpRequest, T)].map { case (request, t) =>
           RequestContext(request, 0) ++ (AkkaHttpClientCustomContext -> t)

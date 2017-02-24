@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 PayPal
+ * Copyright 2017 PayPal
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,19 +22,18 @@ import javax.management.ObjectName
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.ws.PeerClosedConnectionException
-import akka.http.scaladsl.model.{RequestTimeoutException, HttpResponse, StatusCodes, HttpRequest}
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse, RequestTimeoutException, StatusCodes}
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{BidiFlow, Flow, Sink, Source}
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{AsyncFlatSpec, BeforeAndAfterAll, Matchers}
 import org.scalatest.OptionValues._
-import org.squbs.endpoint.{EndpointResolverRegistry, Endpoint, EndpointResolver}
-import org.squbs.env.Environment
-import org.squbs.metrics.{MetricsFlow, MetricsExtension}
-import org.squbs.pipeline.streaming._
+import org.scalatest.{AsyncFlatSpec, BeforeAndAfterAll, Matchers}
+import org.squbs.resolver._
+import org.squbs.metrics.{MetricsExtension, MetricsFlow}
+import org.squbs.pipeline.{Context, PipelineFlow, PipelineFlowFactory, RequestContext}
 import org.squbs.testkit.Timeouts._
 
-import scala.concurrent.{Future, Await}
+import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
 
 object MetricsFlowSpec {
@@ -46,7 +45,7 @@ object MetricsFlowSpec {
        |  factory = org.squbs.httpclient.DefaultFlow
        |}
        |
-       |squbs.pipeline.streaming.defaults {
+       |squbs.pipeline.client.default {
        |  pre-flow =  preFlow
        |}
        |
@@ -68,8 +67,8 @@ object MetricsFlowSpec {
 
   implicit val system: ActorSystem = ActorSystem("ClientMetricFlowSpec", config)
   implicit val materializer = ActorMaterializer()
-  import system.dispatcher
   import akka.http.scaladsl.server.Directives._
+  import system.dispatcher
 
   val route =
     path("hello") {
@@ -99,10 +98,8 @@ class MetricsFlowSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll
     serverBinding.unbind() map {_ => system.terminate()}
   }
 
-  EndpointResolverRegistry(system).register(new EndpointResolver {
-    override def name: String = "LocalhostEndpointResolver"
-    override def resolve(svcName: String, env: Environment) = Some(Endpoint(s"http://localhost:$port"))
-  })
+  ResolverRegistry(system).register[HttpEndpoint]("LocalhostEndpointResolver")
+    { (_, _) => Some(HttpEndpoint(s"http://localhost:$port")) }
 
   it should "collect request count and time metrics" in {
     val f = for(i <- 0 until 5) yield callService("sampleClient", "/hello")

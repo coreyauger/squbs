@@ -1,5 +1,5 @@
 /*
- *  Copyright 2015 PayPal
+ *  Copyright 2017 PayPal
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,8 +15,11 @@
  */
 
 object Versions {
-  val akkaV = "2.4.14"
-  val akkaHttpV = "10.0.0"
+  val akkaV = "2.4.16"
+  val akkaHttpV = "10.0.3"
   val scalatestV = "3.0.0"
+  val jacksonV = "2.8.5"
+  val json4sV = "3.5.0"
   val metricsV = "3.1.0"
+  val junitInterfaceV = "0.11"
 }
