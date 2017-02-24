@@ -1,5 +1,5 @@
 /*
- *  Copyright 2015 PayPal
+ *  Copyright 2017 PayPal
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -29,12 +29,13 @@ import akka.util.Timeout
 import com.typesafe.config._
 import com.typesafe.scalalogging.LazyLogging
 import org.squbs.lifecycle.ExtensionLifecycle
-import org.squbs.pipeline.streaming.PipelineSetting
-import org.squbs.util.ConfigUtil._
+import org.squbs.pipeline.PipelineSetting
 import org.squbs.unicomplex.UnicomplexBoot.CubeInit
+import org.squbs.util.ConfigUtil._
 
 import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
+import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
@@ -114,7 +115,9 @@ object UnicomplexBoot extends LazyLogging {
         Seq("conf", "json", "properties") flatMap { ext => loader.getResources(s"META-INF/squbs-meta.$ext") }
       } else Seq.empty
 
-    val jarConfigs = (cpResources ++ resources) map readConfigs collect { case Some(jarCfg) => jarCfg }
+    // Dedup the resources, just in case.
+    val allResources = mutable.LinkedHashSet(cpResources ++ resources : _*).toSeq
+    val jarConfigs = allResources map readConfigs collect { case Some(jarCfg) => jarCfg }
     resolveCubes(jarConfigs, boot)
   }
 
@@ -130,54 +133,52 @@ object UnicomplexBoot extends LazyLogging {
     boot.copy(cubes = cubeList, jarConfigs = jarConfigs, listeners = activeListeners, listenerAliases = activeAliases)
   }
 
-  private[this] def readConfigs(jarName: String): Option[Config] = {
+  private def createReaderFromFS(directory: File): String => Option[Reader] = {
+    (filePath: String) => Option(new File(directory, filePath)) collect {
+      case configFile if configFile.isFile => new InputStreamReader(new FileInputStream(configFile), "UTF-8")
+    }
+  }
 
+  private def createReaderFromJarFile(file: File): String => Option[Reader] = {
+    val triedJarFile = Try(new JarFile(file))
+    (filePath: String) => triedJarFile match {
+      case Success(jarFile) => Option(jarFile.getEntry(filePath)) collect {
+        case configFile if !configFile.isDirectory => new InputStreamReader(jarFile.getInputStream(configFile), "UTF-8")
+      }
+      case Failure(e)       => throw e
+      }
+  }
+
+  private def getConfigReader(jarName: String): Option[(Option[Reader], String)] = {
     // Make it extra lazy, so that we do not create the next File if the previous one succeeds.
     val configExtensions = Stream("conf", "json", "properties")
-
-    val jarFile = new File(jarName)
-
-    var fileName: String = "" // Contains the evaluated config file name, used for reporting errors.
-    var configReader: Option[Reader] = None
-
-    try {
-      configReader =
-        if (jarFile.isDirectory) {
-
-          def getConfFile(ext: String) = {
-            fileName = "META-INF/squbs-meta." + ext
-            val confFile = new File(jarFile, fileName)
-            if (confFile.isFile) Option(new InputStreamReader(new FileInputStream(confFile), "UTF-8"))
-            else None
-          }
-          (configExtensions map getConfFile find { _.isDefined }).flatten
-
-        } else if (jarFile.isFile) {
-
-          val jar = new JarFile(jarFile)
-
-          def getConfFile(ext: String) = {
-            fileName = "META-INF/squbs-meta." + ext
-            val confFile = jar.getEntry(fileName)
-            if (confFile != null && !confFile.isDirectory)
-              Option(new InputStreamReader(jar.getInputStream(confFile), "UTF-8"))
-            else None
-          }
-          (configExtensions map getConfFile find { _.isDefined }).flatten
-        } else None
-
-      configReader map ConfigFactory.parseReader
-
-    } catch {
-      case e: Exception =>
-        logger.info(s"${e.getClass.getName} reading configuration from $jarName : $fileName.\n ${e.getMessage}")
-        None
-    } finally {
-      configReader match {
-        case Some(reader) => reader.close()
-        case None =>
-      }
+    val maybeConfFileReader = Option(new File(jarName)) collect {
+      case file if file.isDirectory => createReaderFromFS(file)
+      case file if file.isFile      => createReaderFromJarFile(file)
     }
+
+    maybeConfFileReader flatMap (fileReader => configExtensions map { ext =>
+      val currentFile = s"META-INF/squbs-meta.$ext"
+      Try(fileReader(currentFile)) match {
+        case Failure(e) =>
+          logger.info(s"${e.getClass.getName} reading configuration from $jarName : $currentFile.\n${e.getMessage}")
+          None
+        case Success(maybeReader) => Option(maybeReader, currentFile)
+      }
+    } find (_.isDefined) flatten)
+  }
+
+  private[this] def readConfigs(jarName: String): Option[Config] = {
+    getConfigReader(jarName) flatMap ((maybeReader: Option[Reader], fileName: String) => {
+      val maybeConfig = Try(maybeReader map ConfigFactory.parseReader) match {
+        case Failure(e)   =>
+          logger.info(s"${e.getClass.getName} reading configuration from $jarName : $fileName.\n${e.getMessage}")
+          None
+        case Success(cfg) => cfg
+      }
+      maybeReader foreach(_.close())
+      maybeConfig
+    }).tupled
   }
 
   private[this] def readConfigs(resource: URL): Option[(String, Config)] = {
@@ -362,8 +363,8 @@ object UnicomplexBoot extends LazyLogging {
         val clazz = Class.forName(className, true, getClass.getClassLoader)
         val webContext = serviceConfig.getString("web-context")
         val pipeline = serviceConfig.getOption[String]("pipeline")
-        val defaultFlowsOn = serviceConfig.getOption[Boolean]("defaultPipelineOn")
-        val streamingPipelineSettings = (pipeline, defaultFlowsOn)
+        val defaultFlowsOn = serviceConfig.getOption[Boolean]("defaultPipeline")
+        val pipelineSettings = (pipeline, defaultFlowsOn)
 
         val listeners = serviceConfig.getOption[Seq[String]]("listeners").fold(Seq("default-listener")) { list =>
           if (list.contains("*")) aliases.values.toSeq.distinct
@@ -377,8 +378,8 @@ object UnicomplexBoot extends LazyLogging {
           }
         }
 
-        val service = startServiceRoute(clazz, webContext, listeners, streamingPipelineSettings) orElse
-          startServiceActor(clazz, webContext, listeners, streamingPipelineSettings,
+        val service = startServiceRoute(clazz, webContext, listeners, pipelineSettings) orElse
+          startServiceActor(clazz, webContext, listeners, pipelineSettings,
             serviceConfig.get[Boolean]("init-required", false))
         service match {
           case Success(svc) => svc

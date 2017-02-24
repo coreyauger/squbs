@@ -1,5 +1,5 @@
 /*
- *  Copyright 2015 PayPal
+ *  Copyright 2017 PayPal
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-
 package org.squbs.env
 
 import java.beans.ConstructorProperties
@@ -38,7 +37,7 @@ case object Default extends Environment {
   /*
   java api
    */
-  val value = this
+  val value: Environment = this
 }
 
 case object QA extends Environment {
@@ -46,7 +45,7 @@ case object QA extends Environment {
   /*
   java api
  */
-  val value = this
+  val value: Environment = this
 }
 
 case object DEV extends Environment {
@@ -54,7 +53,7 @@ case object DEV extends Environment {
   /*
   java api
  */
-  val value = this
+  val value: Environment = this
 }
 
 case object PROD extends Environment {
@@ -62,7 +61,7 @@ case object PROD extends Environment {
   /*
   java api
  */
-  val value = this
+  val value: Environment = this
 }
 
 case class RawEnv(name: String) extends Environment
@@ -74,7 +73,7 @@ trait EnvironmentResolver {
 }
 
 class EnvironmentResolverRegistryExtension(system: ExtendedActorSystem) extends Extension with LazyLogging {
-  var environmentResolvers = List[EnvironmentResolver]()
+  private[env] var environmentResolvers = List.empty[EnvironmentResolver]
 
   def register(resolver: EnvironmentResolver) {
     environmentResolvers.find(_.name == resolver.name) match {
@@ -85,9 +84,9 @@ class EnvironmentResolverRegistryExtension(system: ExtendedActorSystem) extends 
   }
 
   def unregister(name: String) {
-    val originalLentgh = environmentResolvers.length
+    val originalLength = environmentResolvers.length
     environmentResolvers = environmentResolvers.filterNot(_.name == name)
-    if(environmentResolvers.length == originalLentgh)
+    if(environmentResolvers.length == originalLength)
       logger.warn("Env Resolver:" + name + " cannot be found, skipping unregister!")
   }
 

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2015 PayPal
+ *  Copyright 2017 PayPal
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -167,6 +167,15 @@ with FlatSpecLike with Matchers {
 
 class CustomTestKitWithClassPathSpec extends CustomTestKit(Seq.empty, true)
 with FlatSpecLike with Matchers {
+
+  it should "start default-listener" in {
+    noException should be thrownBy port
+    port shouldEqual port("default-listener")
+  }
+}
+
+class CustomTestKitWithResourceDetectSpec extends CustomTestKit(false)
+  with FlatSpecLike with Matchers {
 
   it should "start default-listener" in {
     noException should be thrownBy port

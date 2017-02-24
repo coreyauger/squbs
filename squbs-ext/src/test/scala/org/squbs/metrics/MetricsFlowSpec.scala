@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 PayPal
+ * Copyright 2017 PayPal
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.testkit.TestKit
 import org.scalatest.{AsyncFlatSpecLike, Matchers}
 import org.scalatest.OptionValues._
-import org.squbs.pipeline.streaming.RequestContext
+import org.squbs.pipeline.RequestContext
 
 import scala.concurrent.Future
 import scala.util.{Failure, Try}
@@ -125,7 +125,7 @@ class MetricsFlowSpec extends TestKit(ActorSystem("MetricsFlowSpec")) with Async
     }
   }
 
-  def jmxValue(beanName: String, key: String) = {
+  def jmxValue(beanName: String, key: String): Option[AnyRef] = {
     val oName =
       ObjectName.getInstance(s"${MetricsExtension(system).Domain}:name=${MetricsExtension(system).Domain}.$beanName")
     Option(ManagementFactory.getPlatformMBeanServer.getAttribute(oName, key))

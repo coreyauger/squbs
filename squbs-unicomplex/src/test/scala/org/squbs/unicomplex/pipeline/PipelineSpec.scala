@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 PayPal
+ * Copyright 2017 PayPal
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import akka.testkit.{ImplicitSender, TestKit}
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 import org.squbs.lifecycle.GracefulStop
-import org.squbs.pipeline.streaming._
+import org.squbs.pipeline.{Context, PipelineFlow, PipelineFlowFactory, RequestContext}
 import org.squbs.unicomplex.Timeouts._
 import org.squbs.unicomplex._
 
@@ -61,7 +61,7 @@ object PipelineSpec {
        |  factory = org.squbs.unicomplex.pipeline.PostFlow
        |}
        |
-       |squbs.pipeline.streaming.defaults {
+       |squbs.pipeline.server.default {
        |  pre-flow =  preFlow
        |  post-flow = postFlow
        |}

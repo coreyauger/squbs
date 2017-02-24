@@ -35,13 +35,6 @@ Each of the components have virtually no dependency on each others. They are tru
 
 9. **Console**: A drop-in module allowing web access to system and application stats through a simple web and service interface returning pretty-printed JSON.
 
-###Experimental Support for Akka HTTP
-The following components are based on Akka HTTP and are considered experimental at this time. These are documented in greater detail under [Experimental Support for Akka HTTP](docs/akka-http-experimental.md).
-
-1. **StreamingPipeline**: Akka streams version of the Pipeline, based upon Akka Streams' `BidiFlow`. It allows users or infrastructure teams to implement request/response filters as `BidiFlow` elements and registering them to the pipeline. This module may only be used if Akka HTTP experimental mode is enabled.
-
-2. **Console for Akka HTTP**: The `squbs-admin-exp` module replaces `squbs-admin` in Akka HTTP experimental mode. It uses the Akka HTTP interfaces instead of the Spray interfaces. In experimental mode, users have to modify their build.sbt and use this dependency instead of squbs-admin.
-
 ##Getting Started
 
 The easiest way to getting started is to create a project from one of the squbs templates. The followings are currently available Activator templates:
@@ -58,13 +51,14 @@ Also check out these [slightly more advanced samples](https://github.com/paypal/
 * [Unicomplex Actor Hierarchy](docs/actor-hierarchy.md)
 * [Runtime Lifecycle & API](docs/lifecycle.md)
 * [Implementing HTTP(S) Services](docs/http-services.md)
+* [Accessing Other Services using HTTP or HTTPS](docs/httpclient.md)
+* [Marshalling and Unmarshalling](docs/marshalling.md)
 * [Configuration Reference](docs/configuration.md)
 * [Testing squbs Applications](docs/testing.md)
 * [Clustering squbs Services using ZooKeeper](docs/zkcluster.md)
 * [The Blocking Dispatcher for Blocking API calls](docs/blocking-dispatcher.md)
 * [Message Guidelines](docs/messages.md)
 * [Monitoring Actors at Runtime](docs/monitor.md)
-* [Accessing Other Services using HTTP or HTTPS](docs/httpclient.md)
 * [Using the Orchestration DSL](docs/orchestration_dsl.md)
 * [The ActorRegistry](docs/registry.md)
 * [Timeout Policy](docs/timeoutpolicy.md)
@@ -73,8 +67,8 @@ Also check out these [slightly more advanced samples](https://github.com/paypal/
 * [Console](docs/console.md)
 * [Application Lifecycle Management](docs/packaging.md)
 * [Streams Lifecycle](docs/streams-lifecycle.md)
-* [Experimental Support for Akka HTTP](docs/akka-http-experimental.md)
-* [Streaming Pipeline](docs/streamingpipeline.md)
+* [Pipeline](docs/pipeline.md)
+* [Resource Resolution](docs/resolver.md)
 
 ##Contributing to squbs
 Thank you very much for contributing to squbs. Please read the [contribution guidelines](CONTRIBUTING.md) for the process.

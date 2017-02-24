@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 PayPal
+ * Copyright 2017 PayPal
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.ByteString
 import org.scalatest.{AsyncFlatSpec, BeforeAndAfterAll, Matchers}
-import org.squbs.endpoint.{Endpoint, EndpointResolver, EndpointResolverRegistry}
-import org.squbs.env.Environment
+import org.squbs.resolver._
 import org.squbs.testkit.Timeouts._
 
 import scala.concurrent.{Await, Future}
@@ -35,14 +34,10 @@ object ClientFlowSpec {
   implicit val system = ActorSystem("ClientFlowSpec")
   implicit val materializer = ActorMaterializer()
 
-  EndpointResolverRegistry(system).register(new EndpointResolver {
-    override def name: String = "LocalhostEndpointResolver"
-
-    override def resolve(svcName: String, env: Environment): Option[Endpoint] = svcName match {
-      case "hello" => Some(Endpoint(s"http://localhost:$port"))
-      case _ => None
-    }
-  })
+  ResolverRegistry(system).register[HttpEndpoint]("LocalhostEndpointResolver") { (svcName, _) => svcName match {
+    case "hello" => Some(HttpEndpoint(s"http://localhost:$port"))
+    case _ => None
+  }}
 
   import akka.http.scaladsl.server.Directives._
   import system.dispatcher
@@ -77,6 +72,26 @@ class ClientFlowSpec  extends AsyncFlatSpec with Matchers with BeforeAndAfterAll
     response.status should be (StatusCodes.OK)
     val entity = response.entity.dataBytes.runFold(ByteString(""))(_ ++ _) map(_.utf8String)
     entity map { e => e shouldEqual "Hello World!" }
+  }
+
+  it should "register the default http endpoint resolver" in {
+    val clientFlow = ClientFlow[Int](s"http://localhost:$port")
+    val responseFuture: Future[(Try[HttpResponse], Int)] =
+      Source.single(HttpRequest(uri = "/hello") -> 42)
+        .via(clientFlow)
+        .runWith(Sink.head)
+
+    val (Success(response), _) = Await.result(responseFuture, awaitMax)
+    response.status should be (StatusCodes.OK)
+    val entity = response.entity.dataBytes.runFold(ByteString(""))(_ ++ _) map(_.utf8String)
+    entity map { e => e shouldEqual "Hello World!" }
+  }
+
+  it should "register the default http endpoint resolver for each actor system" in {
+    implicit val system = ActorSystem("ClientFlowSecondSpec")
+    implicit val materializer = ActorMaterializer()
+    ClientFlow[Int]("https://akka.io")
+    Future { ClientFlow.defaultResolverRegistrationRecord.size should be >= 2 }
   }
 
   it should "throw HttpClientEndpointNotExistException if it cannot resolve the client" in {

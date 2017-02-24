@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 PayPal
+ * Copyright 2017 PayPal
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@
 package org.squbs.metrics
 
 import akka.actor.ActorSystem
-import akka.stream.scaladsl.{Flow, BidiFlow}
-import com.codahale.metrics.{Timer, MetricRegistry}
-import org.squbs.pipeline.streaming._
+import akka.stream.scaladsl.{BidiFlow, Flow}
+import com.codahale.metrics.{MetricRegistry, Timer}
+import org.squbs.pipeline.RequestContext
 
-import scala.util.{Try, Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object MetricsFlow {
 

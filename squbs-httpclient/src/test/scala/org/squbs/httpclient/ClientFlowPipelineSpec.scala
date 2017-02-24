@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 PayPal
+ * Copyright 2017 PayPal
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,17 +20,16 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.RawHeader
-import akka.stream.{BidiShape, ActorMaterializer}
 import akka.stream.scaladsl._
+import akka.stream.{ActorMaterializer, BidiShape}
 import akka.util.ByteString
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{BeforeAndAfterAll, Matchers, AsyncFlatSpec}
-import org.squbs.endpoint.{EndpointResolverRegistry, Endpoint, EndpointResolver}
-import org.squbs.env.Environment
-import org.squbs.pipeline.streaming._
+import org.scalatest.{AsyncFlatSpec, BeforeAndAfterAll, Matchers}
+import org.squbs.pipeline.{Context, PipelineFlow, PipelineFlowFactory, RequestContext}
+import org.squbs.resolver.ResolverRegistry
 import org.squbs.testkit.Timeouts._
 
-import scala.concurrent.{Future, Await}
+import scala.concurrent.{Await, Future}
 import scala.util.{Success, Try}
 
 object ClientFlowPipelineSpec {
@@ -52,7 +51,7 @@ object ClientFlowPipelineSpec {
        |  factory = org.squbs.httpclient.PostFlow
        |}
        |
-       |squbs.pipeline.streaming.defaults {
+       |squbs.pipeline.client.default {
        |  pre-flow =  preFlow
        |  post-flow = postFlow
        |}
@@ -69,20 +68,20 @@ object ClientFlowPipelineSpec {
        |clientWithCustomPipelineWithoutDefaults {
        |  type = squbs.httpclient
        |  pipeline = dummyFlow
-       |  defaultPipelineOn = false
+       |  defaultPipeline = off
        |}
        |
        |clientWithNoPipeline {
        |  type = squbs.httpclient
-       |  defaultPipelineOn = false
+       |  defaultPipeline = off
        |}
     """.stripMargin
   )
 
   implicit val system: ActorSystem = ActorSystem("ClientFlowPipelineSpec", config)
   implicit val materializer = ActorMaterializer()
-  import system.dispatcher
   import akka.http.scaladsl.server.Directives._
+  import system.dispatcher
 
   val route =
     path("hello") {
@@ -96,7 +95,7 @@ object ClientFlowPipelineSpec {
   val port = serverBinding.localAddress.getPort
 }
 
-class ClientFlowPipelineSpec  extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
+class ClientFlowPipelineSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
 
   import ClientFlowPipelineSpec._
 
@@ -104,10 +103,8 @@ class ClientFlowPipelineSpec  extends AsyncFlatSpec with Matchers with BeforeAnd
     serverBinding.unbind() map {_ => system.terminate()}
   }
 
-  EndpointResolverRegistry(system).register(new EndpointResolver {
-    override def name: String = "LocalhostEndpointResolver"
-    override def resolve(svcName: String, env: Environment) = Some(Endpoint(s"http://localhost:$port"))
-  })
+  ResolverRegistry(system).register[HttpEndpoint]("LocalhostEndpointResolver")
+    { (_, _) => Some(HttpEndpoint(s"http://localhost:$port")) }
 
   it should "build the flow with defaults" in {
     val expectedResponseHeaders = Seq(

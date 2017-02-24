@@ -1,5 +1,5 @@
 /*
- *  Copyright 2015 PayPal
+ *  Copyright 2017 PayPal
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ import akka.stream.scaladsl.Flow
 import akka.util.Timeout
 import com.typesafe.config.Config
 import org.squbs.lifecycle.{ExtensionLifecycle, GracefulStop, GracefulStopHelper}
-import org.squbs.pipeline.streaming.PipelineSetting
+import org.squbs.pipeline.PipelineSetting
 import org.squbs.unicomplex.UnicomplexBoot.StartupType
 
 import scala.annotation.varargs
