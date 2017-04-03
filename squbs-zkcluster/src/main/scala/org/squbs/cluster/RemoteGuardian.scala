@@ -17,7 +17,7 @@
 package org.squbs.cluster
 
 import akka.actor._
-import akka.remote.QuarantinedEvent
+import akka.remote.ThisActorSystemQuarantinedEvent
 
 /**
  * Created by zhuwang on 2/8/15.
@@ -32,13 +32,13 @@ class RemoteGuardian extends Actor with ActorLogging {
 
   val zkCluster= ZkCluster(context.system)
 
-  override def preStart: Unit = context.system.eventStream.subscribe(self, classOf[QuarantinedEvent])
+  override def preStart: Unit = context.system.eventStream.subscribe(self, classOf[ThisActorSystemQuarantinedEvent])
 
   val EXIT_CODE = 99
 
   override def receive: Receive = {
-    case QuarantinedEvent(remote, uid) => // first QuarantinedEvent arrived
-      log.error("[RemoteGuardian] get Quarantined event for remote {} uid {}. Performing a suicide ...", remote, uid)
+    case ThisActorSystemQuarantinedEvent(remote, uid) => // first ThisActorSystemQuarantinedEvent arrived
+      log.error("[RemoteGuardian] got ThisActorSystemQuarantinedEvent event for remote {} uid {}. Performing a suicide ...", remote, uid)
       zkCluster.addShutdownListener((_) => context.system.shutdown)
       zkCluster.addShutdownListener((_) => System.exit(EXIT_CODE))
       zkCluster.zkClusterActor ! PoisonPill
