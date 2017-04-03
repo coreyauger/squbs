@@ -39,6 +39,7 @@ import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 object UnicomplexBoot extends LazyLogging {
@@ -205,7 +206,7 @@ object UnicomplexBoot extends LazyLogging {
       val config = ConfigFactory.parseURL(resource, ConfigParseOptions.defaults().setAllowMissing(false))
       Some((jarName, config))
     } catch {
-      case e: Exception =>
+      case NonFatal(e) =>
         logger.warn(s"${e.getClass.getName} reading configuration from $jarName.\n ${e.getMessage}")
         None
     }
@@ -302,7 +303,7 @@ object UnicomplexBoot extends LazyLogging {
         cubeSupervisor ! StartCubeActor(props, name, initRequired)
         Some((fullName, name, version, clazz))
       } catch {
-        case e: Exception =>
+        case NonFatal(e) =>
           val t = getRootCause(e)
           logger.warn(s"Can't load actor: $className.\n" +
             s"Cube: $fullName $version\n" +
@@ -463,7 +464,7 @@ object UnicomplexBoot extends LazyLogging {
   def startServiceInfra(boot: UnicomplexBoot)(implicit actorSystem: ActorSystem) {
     import actorSystem.dispatcher
     val startTime = System.nanoTime
-    implicit val timeout = Timeout((boot.listeners.size * 5) seconds)
+    implicit val timeout = Timeout((boot.listeners.size * 10) seconds)
     val ackFutures =
       for ((listenerName, config) <- boot.listeners) yield {
         Unicomplex(actorSystem).uniActor ? StartListener(listenerName, config)
@@ -516,7 +517,10 @@ case class UnicomplexBoot private[unicomplex](startTime: Timestamp,
     UnicomplexBoot.scanResources(resources map (new File(_).toURI.toURL), withClassPath)(this)
 
   def scanResources(resources: String*): UnicomplexBoot =
-    UnicomplexBoot.scanResources(resources map (new File(_).toURI.toURL), withClassPath = true)(this)
+    UnicomplexBoot.scanResources(resources map (new File(_).toURI.toURL))(this)
+
+  def scanResources(withClassPath: Boolean, resources: Array[String]): UnicomplexBoot =
+    scanResources(withClassPath, resources: _*)
 
   def initExtensions: UnicomplexBoot = {
 
@@ -639,8 +643,10 @@ case class UnicomplexBoot private[unicomplex](startTime: Timestamp,
         Future {
           extensions.reverse foreach { e =>
             import e.info._
-            e.extLifecycle foreach (_.shutdown())
-            logger.info(s"Shutting down extension ${e.extLifecycle.getClass.getName} in $fullName $version")
+            e.extLifecycle foreach { elc =>
+              logger.info(s"Shutting down extension ${elc.getClass.getName} in $fullName $version")
+              elc.shutdown()
+            }
           }
         } onComplete {
           case Success(result) =>
@@ -661,7 +667,7 @@ case class UnicomplexBoot private[unicomplex](startTime: Timestamp,
       val extLifecycle = ExtensionLifecycle(this) { clazz.asSubclass(classOf[ExtensionLifecycle]).newInstance }
       Extension(cube.info, seqNo, Some(extLifecycle), Seq.empty)
     } catch {
-      case e: Exception =>
+      case NonFatal(e) =>
         import cube.info._
         val t = getRootCause(e)
         logger.warn(s"Can't load extension $className.\n" +
@@ -685,7 +691,7 @@ case class UnicomplexBoot private[unicomplex](startTime: Timestamp,
           logger.info(s"Success $opName extension ${l.getClass.getName} in $fullName $version")
           extension
         } catch {
-          case e: Exception =>
+          case NonFatal(e) =>
             val t = getRootCause(e)
             logger.warn(s"Error on $opName extension ${l.getClass.getName}\n" +
               s"Cube: $fullName $version\n" +

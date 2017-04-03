@@ -22,4 +22,6 @@ object Versions {
   val json4sV = "3.5.0"
   val metricsV = "3.1.0"
   val junitInterfaceV = "0.11"
+  val junitV = "4.12"
+  val testngV = "6.8.8"
 }

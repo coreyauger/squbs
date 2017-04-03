@@ -1,8 +1,8 @@
-#Validation
+# Validation
 
-squbs Validation provides a [Spray](http://spray.io) directive for data validation by using [Accord Validation Library](http://wix.github.io/accord/). Since Spray directives are currently Scala only, there is no equivalent in Java code until future versions of squbs.
+squbs Validation provides a [Akka HTTP](http://doc.akka.io/) directive for data validation by using [Accord Validation Library](http://wix.github.io/accord/). Currently this is Scala only feature, Java version will be added in future versions of squbs.
   
-##Dependencies
+## Dependencies
 
 Add the following dependency to your build.sbt or scala build file:
 
@@ -10,9 +10,10 @@ Add the following dependency to your build.sbt or scala build file:
 "org.squbs" %% "squbs-pattern" % squbsVersion
 ```  
   
-##Usage
+## Usage
   
-Given that an implicit `Person` validator is in the scope, `validate` directive can be used as other [Spray Directives](http://spray.io/documentation/1.2.3/spray-routing/key-concepts/directives/):     
+Given that an implicit `Person` validator is in the scope, `validate` directive can be used as other [Akka HTTP Directives](http://doc.akka.io/docs/akka-http/current/scala/http/routing-dsl/directives/index.html):
+
   
 ```scala
 import ValidationDirectives._
@@ -21,7 +22,7 @@ validate(person) {
 }
 ```  
 
-##Example
+## Example
 
 Here is a sample `Person` class and corresponding validator (please see [Accord Validation Library](http://wix.github.io/accord/) for more validator usage examples).
 
@@ -48,12 +49,12 @@ Now you can use the `validate` directive as follows:
        post {
          entity(as[Person]) { person =>
            import ValidationDirectives._
+           // importing the person validator
+           import SampleValidators._
            validate(person) {
-             respondWithMediaType(`application/json`) {
                complete {
                  person
                }
-             }
            }
          }
        }

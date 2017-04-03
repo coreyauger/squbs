@@ -23,7 +23,7 @@ Add the following dependency to your `build.sbt` or scala build file:
 
 `squbs-httpclient` project sticks to the Akka HTTP API.  The only exception is during the creation of host connection pool.  Instead of `Http().cachedHostConnectionPool`, it defines `ClientFlow` with the same set of parameters (and few extra optional parameters).
 
-####Scala
+#### Scala
 
 Similar to the example at [Akka HTTP Host-Level Client-Side API](http://doc.akka.io/docs/akka-http/current/scala/http/client-side/host-level.html#example), the Scala use of `ClientFlow` is as follows:      
   
@@ -40,7 +40,7 @@ val responseFuture: Future[(Try[HttpResponse], Int)] =
     .runWith(Sink.head)
 ```
 
-####Java
+#### Java
 
 Also, similar to the example at [Akka HTTP Host-Level Client-Side API](http://doc.akka.io/docs/akka-http/current/java/http/client-side/host-level.html#example), the Java use of `ClientFlow` is as follows:
 
@@ -178,6 +178,8 @@ ResolverRegistry.get(system).register(HttpEndpoint.class, new SampleEndpointReso
 You can register multiple `Resolver`s.  The chain is executed in the reverse order of registration.  If a resolver returns `None`, it means it could not resolve it and the next resolver is tried.  
 
 If the resolved endpoint is a secure one, e.g., https, an `SSLContext` can be passed to `HttpEndpoint` as an optional parameter.
+
+An optional `Config` can also be passed to `HttpEndpoint` to override the default configuration.  However, the client specific configuration has always higher precendence over the passed in configuration.
 
 Please see [Resource Resolution](resolver.md) for details on resolution in general.
 
