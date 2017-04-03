@@ -48,7 +48,7 @@ case class ZkCluster(zkAddress: Address,
 
   //all interactions with the zk cluster extension should be through the zkClusterActor below
   lazy val zkClusterActor = system.actorOf(Props[ZkClusterActor], "zkCluster")
-  //val remoteGuardian = system.actorOf(Props[RemoteGuardian], "remoteGuardian")
+  val remoteGuardian = system.actorOf(Props[RemoteGuardian], "remoteGuardian")
 
   private[this] implicit val log = logger
   private[this] val curatorFwk = new AtomicReference[CuratorFramework]()
