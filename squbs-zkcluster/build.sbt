@@ -2,6 +2,12 @@ import Versions._
 
 name := "squbs-zkcluster"
 
+organization := "im.conversant"
+
+publishTo := Some("NextWave Repo" at "https://repository.conversant.im/artifactory/nxtwv-maven/")
+
+credentials += Credentials(Path.userHome / ".ivy2" / ".credentials")
+
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-actor" % akkaV,
   "com.typesafe.akka" %% "akka-remote" % akkaV,

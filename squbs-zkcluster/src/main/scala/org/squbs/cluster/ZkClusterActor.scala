@@ -77,6 +77,7 @@ class ZkClusterActor extends FSM[ZkClusterState, ZkClusterData] with Stash with 
       whenZkClientUpdated = whenZkClientUpdated :+ sender()
       stay()
     case Event(ZkQueryMembership, zkClusterData) =>
+      log.info(s"ZkClusterActor got Membership request .. returning ${zkClusterData.members} to sender")
       sender() ! ZkMembership(zkClusterData.members)
       stay()
     case Event(ZkMonitorPartition, _) =>
